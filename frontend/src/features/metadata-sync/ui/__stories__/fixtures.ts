@@ -83,6 +83,24 @@ const PREVIEW: MetadataSyncReport = {
             },
           ],
         },
+        {
+          side: 'smus:asset-orders-view',
+          kind: 'smus',
+          label: 'Orders (view published.orders)',
+          outcome: 'would-write',
+          writes: [
+            {
+              key: 'order_id',
+              field: 'description',
+              value: 'The order, unique across every channel.',
+            },
+            {
+              key: '#table',
+              field: 'description',
+              value: 'One row per order, as it stood when it shipped.',
+            },
+          ],
+        },
       ],
     },
     {
@@ -145,6 +163,9 @@ const RUN_REFUSED: MetadataSyncReport = {
   ...RUN_CLEAN,
   finishedAt: ago(0.2),
   totals: { tables: 42, adoptions: 0, conflicts: 0, writes: 0, failed: REFUSED_TABLES.length * 2 },
+  problems: [
+    'The assets of project Pipeline could not be listed: AccessDeniedException: User is not permitted to perform operation: Search',
+  ],
   tables: REFUSED_TABLES.map((table) => ({
     database: 'sales',
     table,
@@ -171,7 +192,7 @@ const RUN_REFUSED: MetadataSyncReport = {
   })),
 };
 
-const ON = { enabled: true, turnedOn: true, smusConfigured: true };
+const ON = { enabled: true, turnedOn: true, smusConfigured: true, projectIds: ['proj-pipeline'] };
 
 export const STATUS_OFF: MetadataSyncStatus = {
   enabled: false,
@@ -193,7 +214,12 @@ export const STATUS_PREVIEWED: MetadataSyncStatus = {
   lastPreview: PREVIEW,
   lastRun: RUN_CLEAN,
 };
-export const STATUS_IN_STEP: MetadataSyncStatus = { ...ON, lastPreview: null, lastRun: RUN_CLEAN };
+export const STATUS_IN_STEP: MetadataSyncStatus = {
+  ...ON,
+  projectIds: [],
+  lastPreview: null,
+  lastRun: RUN_CLEAN,
+};
 export const STATUS_REFUSED: MetadataSyncStatus = {
   ...ON,
   lastPreview: null,

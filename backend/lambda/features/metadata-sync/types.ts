@@ -132,6 +132,8 @@ export interface SyncReport {
     writes: number;
     failed: number;
   };
+  /** What could not be read to find the tables in scope, in words; absent when nothing. */
+  problems?: string[];
   /** Only the tables with something to say: an adoption, a conflict, a write or a failure. */
   tables: TableResult[];
 }

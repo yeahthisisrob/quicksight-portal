@@ -13,10 +13,17 @@ export interface MetadataSyncConfig {
   /** What Settings says, whether or not SMUS is there to read. */
   turnedOn: boolean;
   smusConfigured: boolean;
+  /** Projects whose own assets are synced, published or not, beside the published listings. */
+  projectIds: string[];
 }
 
 export function getMetadataSyncConfig(): MetadataSyncConfig {
   const turnedOn = settingsStore.get('metadataSync.enabled') === true;
   const smusConfigured = getSmusConfig().enabled;
-  return { enabled: turnedOn && smusConfigured, turnedOn, smusConfigured };
+  return {
+    enabled: turnedOn && smusConfigured,
+    turnedOn,
+    smusConfigured,
+    projectIds: settingsStore.getList('metadataSync.projectIds'),
+  };
 }

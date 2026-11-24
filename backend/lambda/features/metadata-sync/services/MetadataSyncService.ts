@@ -1,20 +1,29 @@
 /**
- * MetadataSyncService - one pass over every table the SMUS snapshot knows:
- * read the Glue table and each of its assets, merge three ways against the
- * table's record, and either say what would change (a preview, which writes
- * nothing anywhere) or write it.
+ * MetadataSyncService - one pass over every table in scope: read the Glue
+ * table and each of its assets, merge three ways against the table's
+ * record, and either say what would change (a preview, which writes nothing
+ * anywhere) or write it.
+ *
+ * A view that selects from exactly one table in scope is a pointer to it:
+ * its asset is synced as one more asset of that table, limited to the
+ * columns the view has, so text written on a pipeline table reaches the
+ * view people browse. A view's own Glue text is never written; whoever
+ * publishes the view recreates it from SQL.
  *
  * A place that is missing or cannot be read is left out of the merge for
  * that table and said so; it never fails the pass. A write that fails leaves
  * that place's baseline where it was, so the next pass tries again.
  */
-import type { CatalogAsset, CatalogListing } from '../../../adapters/aws/DataZoneAdapter';
+import type { Table } from '@aws-sdk/client-glue';
+
+import type { CatalogAsset, ProjectAsset } from '../../../adapters/aws/DataZoneAdapter';
 import type { GlueAdapter } from '../../../adapters/aws/GlueAdapter';
 import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
-import { glueShown, glueTableInput, isGlueView } from '../lib/glueText';
+import { glueShown, glueTableInput } from '../lib/glueText';
 import { applyWrites, baselineAfter, emptyRecord, mergeTable } from '../lib/merge';
 import { smusRevision, smusShown } from '../lib/smusText';
+import { isView, referencedTables, viewSql } from '../lib/viewSql';
 import {
   type FieldWrite,
   GLUE_SIDE,
@@ -24,6 +33,7 @@ import {
   type SyncMode,
   type SyncReport,
   smusSide,
+  TABLE_KEY,
   type TableResult,
 } from '../types';
 import type { SyncRecords } from './MetadataSyncStore';
@@ -46,40 +56,107 @@ type TableReader = Pick<GlueAdapter, 'getTable' | 'updateTable'>;
 
 interface PassInput {
   mode: SyncMode;
-  listings: readonly CatalogListing[];
+  /** Every asset in scope: the snapshot's listings and the chosen projects' own assets. */
+  assets: readonly ProjectAsset[];
   snapshotAt: string;
+  /** What could not be read while finding the scope, carried into the report. */
+  problems?: string[];
   jobId?: string;
   startedBy?: string;
   progress?: (done: number, total: number) => Promise<void>;
+}
+
+/** An asset that is one more place a table's text goes, and the columns it may take. */
+interface ScopedAsset {
+  assetId: string;
+  label: string;
+  /** Set for a view's asset: only these columns exist there. */
+  columns?: Set<string>;
 }
 
 interface TableScope {
   catalog?: string;
   database: string;
   table: string;
-  listings: CatalogListing[];
+  assets: ScopedAsset[];
 }
 
-/** The tables the listings stand for; several listings of one table are that table's assets. */
-export function tablesInScope(listings: readonly CatalogListing[]): TableScope[] {
+type GlueRead = { table: Table | null } | { error: string };
+
+const tableKey = (database: string, table: string) => `${database}.${table}`.toLowerCase();
+
+/** The tables the assets stand for; several assets of one table are that table's places. */
+export function tablesInScope(assets: readonly ProjectAsset[]): TableScope[] {
   const byTable = new Map<string, TableScope>();
-  for (const listing of listings) {
-    if (!listing.table?.database || !listing.table.name || !listing.assetId) {
+  const seen = new Set<string>();
+  for (const asset of assets) {
+    if (!asset.table?.database || !asset.table.name || !asset.assetId || seen.has(asset.assetId)) {
       continue;
     }
-    const key = `${listing.table.catalog ?? ''}/${listing.table.database}.${listing.table.name}`;
+    seen.add(asset.assetId);
+    const key = tableKey(asset.table.database, asset.table.name);
     const scope = byTable.get(key) ?? {
-      catalog: listing.table.catalog,
-      database: listing.table.database,
-      table: listing.table.name,
-      listings: [],
+      catalog: asset.table.catalog,
+      database: asset.table.database,
+      table: asset.table.name,
+      assets: [],
     };
-    scope.listings.push(listing);
+    scope.catalog ??= asset.table.catalog;
+    scope.assets.push({ assetId: asset.assetId, label: asset.name });
     byTable.set(key, scope);
   }
-  return [...byTable.values()].sort((a, b) =>
-    `${a.database}.${a.table}`.localeCompare(`${b.database}.${b.table}`)
+  return [...byTable.values()].sort((x, y) =>
+    tableKey(x.database, x.table).localeCompare(tableKey(y.database, y.table))
   );
+}
+
+/**
+ * Fold each pointer view into the table it reads: its assets become that
+ * table's, limited to the view's columns, and the view is no longer a table
+ * of its own. A view over no table in scope, or over several, stays as it
+ * is: a join has no one table to take its words from.
+ */
+function foldViews(scopes: TableScope[], glue: Map<TableScope, GlueRead>): TableScope[] {
+  const tables = scopes.filter((scope) => {
+    const read = glue.get(scope);
+    return !(read && 'table' in read && read.table && isView(read.table));
+  });
+  const byKey = new Map(tables.map((scope) => [tableKey(scope.database, scope.table), scope]));
+  const databases = [...new Set(tables.map((scope) => scope.database))];
+  const kept: TableScope[] = [...tables];
+  for (const scope of scopes) {
+    const read = glue.get(scope);
+    const view = read && 'table' in read ? read.table : null;
+    if (!view || !isView(view)) {
+      continue;
+    }
+    const sql = viewSql(view);
+    const reads = new Set<TableScope>();
+    for (const database of databases) {
+      for (const name of referencedTables(sql, database)) {
+        const base = byKey.get(tableKey(database, name));
+        if (base) reads.add(base);
+      }
+    }
+    const [base] = [...reads];
+    if (reads.size !== 1 || !base) {
+      kept.push(scope);
+      continue;
+    }
+    const columns = new Set(
+      [...(view.StorageDescriptor?.Columns ?? []), ...(view.PartitionKeys ?? [])]
+        .map((column) => column.Name)
+        .filter((name): name is string => Boolean(name))
+    );
+    for (const asset of scope.assets) {
+      base.assets.push({
+        assetId: asset.assetId,
+        label: `${asset.label} (view ${scope.database}.${scope.table})`,
+        columns,
+      });
+    }
+  }
+  return kept;
 }
 
 export class MetadataSyncService {
@@ -93,18 +170,25 @@ export class MetadataSyncService {
 
   public async run(input: PassInput): Promise<SyncReport> {
     const startedAt = this.now().toISOString();
-    const scopes = tablesInScope(input.listings);
+    const found = tablesInScope(input.assets);
+    const glue = new Map<TableScope, GlueRead>();
+    await this.pooled(found, async (scope) => {
+      try {
+        glue.set(scope, {
+          table: await this.glue.getTable(scope.database, scope.table, scope.catalog),
+        });
+      } catch (error) {
+        glue.set(scope, { error: errorMessage(error) });
+      }
+    });
+    const scopes = foldViews(found, glue);
     const results: TableResult[] = [];
     let done = 0;
-    const queue = [...scopes];
-    const worker = async () => {
-      for (let scope = queue.shift(); scope; scope = queue.shift()) {
-        results.push(await this.syncTable(scope, input.mode));
-        done += 1;
-        await input.progress?.(done, scopes.length);
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, scopes.length) }, worker));
+    await this.pooled(scopes, async (scope) => {
+      results.push(await this.syncTable(scope, input.mode, glue.get(scope) ?? { table: null }));
+      done += 1;
+      await input.progress?.(done, scopes.length);
+    });
 
     const tables = results
       .filter(
@@ -123,6 +207,7 @@ export class MetadataSyncService {
       startedAt,
       finishedAt: this.now().toISOString(),
       snapshotAt: input.snapshotAt,
+      ...(input.problems?.length ? { problems: input.problems } : {}),
       totals: {
         tables: scopes.length,
         adoptions: tables.reduce((n, t) => n + t.adoptions.length, 0),
@@ -136,7 +221,18 @@ export class MetadataSyncService {
     };
   }
 
-  private async syncTable(scope: TableScope, mode: SyncMode): Promise<TableResult> {
+  /** Run `work` over every item, a few at a time. */
+  private async pooled<T>(items: readonly T[], work: (item: T) => Promise<void>): Promise<void> {
+    const queue = [...items];
+    const worker = async () => {
+      for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
+        await work(item);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
+  }
+
+  private async syncTable(scope: TableScope, mode: SyncMode, read: GlueRead): Promise<TableResult> {
     const { database, table } = scope;
     const now = this.now().toISOString();
     const sides: SideResult[] = [];
@@ -151,33 +247,32 @@ export class MetadataSyncService {
       writes: [],
     };
     sides.push(glue);
-    try {
-      const found = await this.glue.getTable(database, table, scope.catalog);
-      if (!found) {
-        glue.outcome = 'missing';
-      } else if (isGlueView(found)) {
-        glue.outcome = 'skipped';
-        glue.error = 'A view: its text belongs to whoever publishes it';
-      } else {
-        shown[GLUE_SIDE] = glueShown(found);
-      }
-    } catch (error) {
+    if ('error' in read) {
       glue.outcome = 'failed';
-      glue.error = errorMessage(error);
+      glue.error = read.error;
+    } else if (!read.table) {
+      glue.outcome = 'missing';
+    } else if (isView(read.table)) {
+      glue.outcome = 'skipped';
+      glue.error = 'A view: its text belongs to whoever publishes it';
+    } else {
+      shown[GLUE_SIDE] = glueShown(read.table);
     }
 
-    for (const listing of scope.listings) {
-      const side = smusSide(listing.assetId);
+    const limits = new Map<SideId, Set<string>>();
+    for (const scoped of scope.assets) {
+      const side = smusSide(scoped.assetId);
+      if (scoped.columns) limits.set(side, scoped.columns);
       const result: SideResult = {
         side,
         kind: 'smus',
-        label: listing.name,
+        label: scoped.label,
         outcome: 'unchanged',
         writes: [],
       };
       sides.push(result);
       try {
-        const asset = await this.dataZone.getAsset(this.domainId, listing.assetId);
+        const asset = await this.dataZone.getAsset(this.domainId, scoped.assetId);
         if (asset) {
           assets.set(side, asset);
           shown[side] = smusShown(asset, table);
@@ -196,7 +291,11 @@ export class MetadataSyncService {
     const record = merged.record;
 
     for (const result of sides) {
-      const writes = merged.writes[result.side];
+      const limit = limits.get(result.side);
+      // A view's asset takes the table's own text and only the columns the view has.
+      const writes = merged.writes[result.side]?.filter(
+        (write) => !limit || write.key === TABLE_KEY || limit.has(write.key)
+      );
       const was = shown[result.side];
       if (!writes || !was) {
         continue;

@@ -137,6 +137,15 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         envVar: 'METADATA_SYNC_ENABLED',
         default: false,
       },
+      {
+        key: 'metadataSync.projectIds',
+        label: 'Projects whose tables are synced',
+        description:
+          "The sync always covers the published listings the SMUS export read. Pick projects here to also cover every table asset they own, published or not: the projects that own the pipeline tables. A view that selects from one of those tables then takes that table's descriptions on its own asset. The role must be a contributor of each project picked. Empty means published listings only.",
+        type: 'multiselect',
+        envVar: 'METADATA_SYNC_PROJECT_IDS',
+        optionsFrom: '/settings/smus/projects',
+      },
     ],
   },
   {

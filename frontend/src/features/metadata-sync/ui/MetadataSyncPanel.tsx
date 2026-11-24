@@ -266,11 +266,14 @@ function ChangesTable({ report }: { report: MetadataSyncReport }) {
 
 function ReportView({
   report,
+  scoped,
   busy,
   onPick,
   settled,
 }: {
   report: MetadataSyncReport;
+  /** Whether Settings names projects whose own assets are synced. */
+  scoped: boolean;
   busy: boolean;
   onPick: (pick: MetadataSyncResolveRequest) => void;
   settled: Record<string, string>;
@@ -302,6 +305,24 @@ function ReportView({
           },
         ]}
       />
+      {!scoped && (
+        <Typography variant="body2" color="text.secondary">
+          Covering the published listings only. To cover the tables a project owns without
+          publishing them, such as pipeline tables, pick the project under Settings › Metadata sync.
+        </Typography>
+      )}
+      {report.problems?.map((problem) => (
+        <Alert key={problem} severity="error">
+          <Typography variant="subtitle2">Some tables in scope could not be found</Typography>
+          <Typography variant="body2" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
+            {problem}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            DataZone lists a project's assets only to its members: give the portal's role a
+            contributor seat in that project.
+          </Typography>
+        </Alert>
+      ))}
       {refusals.map((group) => (
         <Refusal key={group.kind} group={group} />
       ))}
@@ -482,6 +503,7 @@ export function MetadataSyncPanel() {
             )}
             <ReportView
               report={report}
+              scoped={(status?.projectIds?.length ?? 0) > 0}
               busy={sync.resolve.isPending}
               onPick={onPick}
               settled={settled}

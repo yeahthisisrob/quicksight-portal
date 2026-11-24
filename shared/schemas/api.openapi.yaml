@@ -13895,6 +13895,11 @@ components:
             failed:
               type: integer
               description: Places that could not be read or written.
+        problems:
+          type: array
+          description: What could not be read while finding the tables in scope, in words.
+          items:
+            type: string
         tables:
           type: array
           description: Only the tables with an adoption, a conflict, a write or a failure.
@@ -13912,6 +13917,11 @@ components:
           type: boolean
         smusConfigured:
           type: boolean
+        projectIds:
+          type: array
+          description: Projects whose own assets are synced beside the published listings.
+          items:
+            type: string
         lastPreview:
           type: object
           nullable: true
