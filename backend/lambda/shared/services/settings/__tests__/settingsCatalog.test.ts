@@ -51,6 +51,7 @@ describe('resolveSetting', () => {
     const snapshot = buildSnapshot({}, {}, { updatedBy: 'rob' });
     expect(snapshot.groups.map((g) => g.id)).toEqual([
       'smus',
+      'metadataSync',
       'planner',
       'guidance',
       'authoring',

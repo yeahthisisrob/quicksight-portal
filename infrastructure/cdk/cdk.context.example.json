@@ -8,5 +8,7 @@
   "_smusDomainId_note": "Optional SMUS (SageMaker Unified Studio) integration. Set to your DataZone domain id (dzd_xxxx, from the SMUS/DataZone console) to enable dataset catalog-link indicators, the 'View in SMUS' action, and SMUS filtering. Leave empty or remove the key to hide all SMUS UI.",
   "smusDomainId": "",
   "_smusPortalUrl_note": "Optional override for the SMUS portal URL, only needed for custom SMUS domains. When empty it is derived as https://{smusDomainId}.sagemaker.{region}.on.aws.",
-  "smusPortalUrl": ""
+  "smusPortalUrl": "",
+  "_metadataSync_note": "Optional. true grants the role the write access the metadata sync needs (glue:UpdateTable, and revising and publishing SMUS assets). The sync itself is still off until Settings turns it on. Leave false or remove the key and the role only reads Glue and SMUS.",
+  "metadataSync": false
 }

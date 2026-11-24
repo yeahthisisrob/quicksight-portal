@@ -2113,6 +2113,137 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/metadata-sync/status:
+    get:
+      operationId: getMetadataSyncStatus
+      tags: [Metadata sync]
+      summary: Metadata sync status
+      description: >
+        Whether the sync of table and column descriptions between Glue and
+        SageMaker Unified Studio is turned on, and the reports of the last
+        preview and the last run. The sync is off unless Settings turns it on,
+        and it needs SMUS configured. When off, both reports are null and the
+        Operations card is hidden.
+      responses:
+        '200':
+          description: Metadata sync status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/MetadataSyncStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/metadata-sync/sync:
+    post:
+      operationId: postMetadataSync
+      tags: [Metadata sync]
+      summary: Preview or run the metadata sync
+      description: |
+        Queues one pass over every table the SMUS snapshot knows. For each it
+        reads the Glue table and each of its SMUS assets and compares three
+        ways: what the portal keeps, what each place showed after the last
+        sync, and what each shows now. Text edited in one place is adopted and
+        copied to the rest; text missing from a place, such as a table that was
+        dropped and created again, is put back; a field edited differently in
+        two places is a conflict and is written nowhere until it is settled.
+        An empty field is never read as an edit.
+
+        `preview` writes nothing anywhere and reports what a run would do.
+        `run` writes column comments and the table description into Glue, and
+        the asset description, name and column business metadata into SMUS,
+        publishing the asset again when it is published. Single-flight: if a
+        pass is queued or running, its job id is returned instead.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  $ref: '#/components/schemas/MetadataSyncMode'
+      responses:
+        '202':
+          description: Pass queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusExportQueued'
+        '200':
+          description: A pass is already in flight; its job is returned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusExportQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/metadata-sync/resolve:
+    post:
+      operationId: postMetadataSyncResolve
+      tags: [Metadata sync]
+      summary: Settle a metadata sync conflict
+      description: >
+        Picks the text for a field two places disagree on. The pick becomes
+        the text the portal keeps, and what each place showed becomes its
+        baseline, so the next run copies the pick over them. Writes only the
+        table's record in the portal's bucket; Glue and SMUS change on the
+        next run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataSyncResolveRequest'
+      responses:
+        '200':
+          description: The conflict is settled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [database, table, key, field]
+                    properties:
+                      database:
+                        type: string
+                      table:
+                        type: string
+                      key:
+                        type: string
+                      field:
+                        $ref: '#/components/schemas/MetadataSyncField'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/smus/dataset-links:
     post:
       operationId: postSmusDatasetLinks
@@ -7370,6 +7501,7 @@ components:
           bulk-operation,
           csv-export,
           smus-export,
+          metadata-sync,
           planner,
           assistant,
           asset-refresh,
@@ -13617,6 +13749,200 @@ components:
           type: string
         message:
           type: string
+
+    MetadataSyncMode:
+      type: string
+      enum: [preview, run]
+      description: A preview writes nothing; a run writes into Glue and SMUS.
+
+    MetadataSyncField:
+      type: string
+      enum: [description, businessName]
+
+    MetadataSyncSideKind:
+      type: string
+      enum: [glue, smus]
+
+    MetadataSyncFieldWrite:
+      type: object
+      required: [key, field, value]
+      properties:
+        key:
+          type: string
+          description: A column name, or `#table` for the table's own text.
+        field:
+          $ref: '#/components/schemas/MetadataSyncField'
+        value:
+          type: string
+          description: The text as this place will show it. Glue cuts a long description.
+        was:
+          type: string
+          description: What the place showed before, when it showed anything.
+
+    MetadataSyncAdoption:
+      type: object
+      required: [key, field, value, from]
+      properties:
+        key:
+          type: string
+        field:
+          $ref: '#/components/schemas/MetadataSyncField'
+        value:
+          type: string
+        from:
+          type: string
+          description: The place it was found in - `glue`, or `smus:<asset id>`.
+        replaced:
+          type: string
+          description: The text the portal kept before.
+
+    MetadataSyncConflict:
+      type: object
+      required: [key, field, sides]
+      properties:
+        key:
+          type: string
+        field:
+          $ref: '#/components/schemas/MetadataSyncField'
+        kept:
+          type: string
+          description: What the portal keeps now, when it keeps anything.
+        sides:
+          type: object
+          description: What each disagreeing place shows, by place (`glue`, `smus:<asset id>`).
+          additionalProperties:
+            type: string
+
+    MetadataSyncSideResult:
+      type: object
+      required: [side, kind, label, outcome, writes]
+      properties:
+        side:
+          type: string
+        kind:
+          $ref: '#/components/schemas/MetadataSyncSideKind'
+        label:
+          type: string
+          description: The table or asset as a person names it.
+        outcome:
+          type: string
+          enum: [written, unchanged, would-write, missing, skipped, failed]
+        writes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataSyncFieldWrite'
+        error:
+          type: string
+          description: Why it failed, or why it was skipped.
+
+    MetadataSyncTableResult:
+      type: object
+      required: [database, table, adoptions, conflicts, sides]
+      properties:
+        database:
+          type: string
+        table:
+          type: string
+        adoptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataSyncAdoption'
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataSyncConflict'
+        sides:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataSyncSideResult'
+
+    MetadataSyncReport:
+      type: object
+      required: [version, mode, startedAt, finishedAt, snapshotAt, totals, tables]
+      properties:
+        version:
+          type: integer
+        mode:
+          $ref: '#/components/schemas/MetadataSyncMode'
+        jobId:
+          type: string
+        startedBy:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        snapshotAt:
+          type: string
+          format: date-time
+          description: When the SMUS snapshot the pass read was taken.
+        totals:
+          type: object
+          required: [tables, adoptions, conflicts, writes, failed]
+          properties:
+            tables:
+              type: integer
+              description: Every table in scope, whether or not anything changed.
+            adoptions:
+              type: integer
+            conflicts:
+              type: integer
+            writes:
+              type: integer
+              description: Fields written, or to write in a preview.
+            failed:
+              type: integer
+              description: Places that could not be read or written.
+        tables:
+          type: array
+          description: Only the tables with an adoption, a conflict, a write or a failure.
+          items:
+            $ref: '#/components/schemas/MetadataSyncTableResult'
+
+    MetadataSyncStatus:
+      type: object
+      required: [enabled, turnedOn, smusConfigured, lastPreview, lastRun]
+      properties:
+        enabled:
+          type: boolean
+          description: Turned on in Settings and SMUS configured - a pass can run.
+        turnedOn:
+          type: boolean
+        smusConfigured:
+          type: boolean
+        lastPreview:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MetadataSyncReport'
+        lastRun:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MetadataSyncReport'
+
+    MetadataSyncResolveRequest:
+      type: object
+      required: [database, table, key, field, value, sides]
+      properties:
+        database:
+          type: string
+        table:
+          type: string
+        key:
+          type: string
+        field:
+          $ref: '#/components/schemas/MetadataSyncField'
+        value:
+          type: string
+          description: The text to keep.
+        sides:
+          type: object
+          description: What each place showed when the pick was made, from the conflict.
+          additionalProperties:
+            type: string
 
     SmusDatasetLink:
       type: object

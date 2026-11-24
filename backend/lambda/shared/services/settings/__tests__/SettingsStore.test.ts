@@ -76,7 +76,11 @@ describe('SettingsStore', () => {
     );
     expect(s.stored()).toEqual({ 'smus.domainId': 'dzd_stored', 'planner.modelId': 'grok-4' });
     expect(snapshot.updatedBy).toBe('rob@example.com');
-    expect(snapshot.groups[1]?.settings.find((x) => x.key === 'planner.modelId')).toMatchObject({
+    expect(
+      snapshot.groups
+        .find((g) => g.id === 'planner')
+        ?.settings.find((x) => x.key === 'planner.modelId')
+    ).toMatchObject({
       value: 'grok-4',
       source: 'stored',
     });

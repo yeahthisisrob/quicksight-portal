@@ -123,6 +123,23 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
     ],
   },
   {
+    id: 'metadataSync',
+    title: 'Metadata sync',
+    description:
+      'Keeps the description of each table and column the same in Glue and in SageMaker Unified Studio, which AWS does not copy between. An edit made in either is adopted and copied to the other; text is put back on a table that was dropped and created again. Off by default: it is the one part of the portal that writes outside QuickSight. Needs SMUS configured, and the write access the README lists.',
+    settings: [
+      {
+        key: 'metadataSync.enabled',
+        label: 'Sync descriptions between Glue and SMUS',
+        description:
+          'Turns on the Metadata sync card on Operations: a preview, which writes nothing, and a run. Nothing runs by itself until a schedule is set.',
+        type: 'boolean',
+        envVar: 'METADATA_SYNC_ENABLED',
+        default: false,
+      },
+    ],
+  },
+  {
     id: 'planner',
     title: 'Planner',
     description: 'The model behind "describe what you want". Bedrock in deployed environments.',
@@ -366,13 +383,23 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
     id: 'schedules',
     title: 'Schedules',
     description:
-      'Runs the portal starts by itself. Manual (the default) means only the buttons start them. One timer checks every hour; when a run is due and none of that kind is going, it starts one, SMUS first, then the export, then activity, one per hour, so each reads what the one before produced. Runs started this way show "schedule" as who started them.',
+      'Runs the portal starts by itself. Manual (the default) means only the buttons start them. One timer checks every hour; when a run is due and none of that kind is going, it starts one, SMUS first, then the metadata sync, then the export, then activity, one per hour, so each reads what the one before produced. Runs started this way show "schedule" as who started them.',
     settings: [
       {
         key: 'schedules.smus',
         label: 'SMUS export',
         description:
           'Reads the published listings and projects from SageMaker Unified Studio. Only when SMUS is configured.',
+        type: 'select',
+        envVar: '',
+        default: 'manual',
+        options: SCHEDULE_OPTIONS,
+      },
+      {
+        key: 'schedules.metadataSync',
+        label: 'Metadata sync',
+        description:
+          'Adopts edits and copies descriptions between Glue and SageMaker Unified Studio. Only when metadata sync is turned on.',
         type: 'select',
         envVar: '',
         default: 'manual',

@@ -29,6 +29,7 @@ export type JobType =
   | 'bulk-operation'
   | 'csv-export'
   | 'smus-export'
+  | 'metadata-sync'
   | 'planner'
   | 'assistant'
   | 'asset-refresh'

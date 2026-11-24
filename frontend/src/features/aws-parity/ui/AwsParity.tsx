@@ -76,6 +76,13 @@ export const PARITY_ROWS: ParityRow[] = [
       'Matched by source table, SQL references, name, then lineage, so governed descriptions reach QuickSight authors and the assistant.',
   },
   {
+    capability: 'One description in Glue and SMUS',
+    portal: { level: 'yes', note: 'Synced both ways, opt-in' },
+    aws: { level: 'no', note: 'Two stores, no copy' },
+    detail:
+      'A table and column description edited in Glue or in SageMaker Unified Studio is adopted and copied to the other, put back on a table that was dropped and created again, and held as a conflict when the two were edited differently. Off until Settings turns it on; a preview writes nothing.',
+  },
+  {
     capability: 'Fixes across the account',
     portal: { level: 'yes', note: 'Playbooks with dry runs' },
     aws: { level: 'no', note: 'One asset at a time' },

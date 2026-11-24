@@ -51,6 +51,12 @@ export interface SmusExportJobConfig extends BaseJobConfig {
   options: { smus: SmusConfig };
 }
 
+/** A metadata sync pass: a preview writes nothing, a run writes into Glue and SMUS. */
+interface MetadataSyncJobConfig extends BaseJobConfig {
+  jobType: 'metadata-sync';
+  options: { mode: 'preview' | 'run'; startedBy?: string };
+}
+
 interface BulkOperationJobConfig extends BaseJobConfig {
   jobType: 'bulk-operation';
   operationConfig: any; // Will be BulkOperationConfig from bulkOperationTypes
@@ -162,6 +168,7 @@ type JobConfig =
   | BulkOperationJobConfig
   | CSVExportJobConfig
   | SmusExportJobConfig
+  | MetadataSyncJobConfig
   | PlannerJobConfig
   | AssistantJobConfig
   | AssetRefreshJobConfig
@@ -336,6 +343,10 @@ export class JobFactory {
       return 'Activity refresh job queued';
     } else if (config.jobType === 'smus-export') {
       return 'SMUS export queued';
+    } else if (config.jobType === 'metadata-sync') {
+      return config.options.mode === 'run'
+        ? 'Metadata sync queued'
+        : 'Metadata sync preview queued';
     } else if (config.jobType === 'bulk-operation') {
       const opType = config.operationConfig?.operationType || 'bulk';
       return `Bulk ${opType} operation queued (${config.estimatedOperations} items)`;
@@ -365,6 +376,8 @@ export class JobFactory {
     } else if (config.jobType === 'activity-refresh') {
       return { options: config.options };
     } else if (config.jobType === 'smus-export') {
+      return { options: config.options };
+    } else if (config.jobType === 'metadata-sync') {
       return { options: config.options };
     } else if (config.jobType === 'bulk-operation') {
       return {
